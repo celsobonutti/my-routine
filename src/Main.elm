@@ -2,9 +2,9 @@ module Main exposing (..)
 
 import Browser
 import DailyTask exposing (Tasks)
-import Html exposing (Html, div, form, h1, img, input, text)
-import Html.Attributes exposing (src, type_, value)
-import Html.Events exposing (onInput)
+import Html exposing (Html, button, div, form, h1, img, input, label, text)
+import Html.Attributes exposing (checked, for, name, src, type_, value)
+import Html.Events exposing (onCheck, onInput)
 import Set exposing (Set)
 
 
@@ -59,6 +59,7 @@ type Field
 
 type Msg
     = UpdateField Field String
+    | CheckDay Int Bool
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -67,6 +68,13 @@ update msg model =
         UpdateField field value ->
             ( { model
                 | formData = updateForm model.formData field value
+              }
+            , Cmd.none
+            )
+
+        CheckDay day isChecked ->
+            ( { model
+                | formData = updateCheck model.formData day isChecked
               }
             , Cmd.none
             )
@@ -88,6 +96,19 @@ updateForm form field newValue =
             { form | end = newValue }
 
 
+updateCheck : Form -> Int -> Bool -> Form
+updateCheck ({ weekday } as form) day isChecked =
+    let
+        newDays =
+            if isChecked then
+                Set.insert day weekday
+
+            else
+                Set.remove day weekday
+    in
+    { form | weekday = newDays }
+
+
 
 ---- VIEW ----
 
@@ -99,7 +120,7 @@ view model =
 
 
 viewForm : Model -> Html Msg
-viewForm { formData } =
+viewForm ({ formData } as model) =
     form []
         [ input
             [ value formData.title
@@ -125,7 +146,66 @@ viewForm { formData } =
             , onInput (UpdateField End)
             ]
             []
+        , div [] (viewCheckboxes model)
+        , button
+            []
+            [ text "Criar Tarefa" ]
         ]
+
+
+viewCheckboxes : Model -> List (Html Msg)
+viewCheckboxes model =
+    List.range 0 6
+        |> List.map (viewCheckbox model)
+
+
+viewCheckbox : Model -> Int -> Html Msg
+viewCheckbox { formData } num =
+    let
+        isChecked =
+            Set.member num formData.weekday
+
+        dayName =
+            numberToWeekday num
+    in
+    div []
+        [ input
+            [ type_ "checkbox"
+            , checked isChecked
+            , name ("check" ++ dayName)
+            , onCheck (CheckDay num)
+            ]
+            []
+        , label [ for ("check" ++ dayName) ] [ text dayName ]
+        ]
+
+
+numberToWeekday : Int -> String
+numberToWeekday day =
+    case day of
+        0 ->
+            "Domingo"
+
+        1 ->
+            "Segunda"
+
+        2 ->
+            "Terça"
+
+        3 ->
+            "Quarta"
+
+        4 ->
+            "Quinta"
+
+        5 ->
+            "Sexta"
+
+        6 ->
+            "Sábado"
+
+        _ ->
+            "Dia inválido"
 
 
 
