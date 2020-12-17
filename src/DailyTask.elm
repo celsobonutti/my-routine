@@ -1,4 +1,4 @@
-module DailyTask exposing (empty, insertTask, createTime, createTimeRange, Tasks)
+module DailyTask exposing (Tasks, createTimeRange, empty, insertTask, parseTime)
 
 import Dict exposing (Dict)
 import Html.Attributes exposing (id)
@@ -25,37 +25,58 @@ type alias TimeRange =
     }
 
 
-type alias Task =
+type alias TaskFields =
     { id : ID
     , title : String
+    , description : String
     , weekdays : Set Weekday
     , time : TimeRange
     }
 
-type alias TaskDictionary
-    = Dict ID Task
 
-type Tasks =
-    Tasks TaskDictionary
+type Task
+    = Task TaskFields
+
+
+type alias TaskDictionary =
+    Dict ID Task
+
+
+type Tasks
+    = Tasks TaskDictionary
+
 
 empty : Tasks
 empty =
-    Tasks (Dict.empty)
+    Tasks Dict.empty
+
 
 createTimeRange : Time -> Time -> Maybe TimeRange
 createTimeRange start end =
     if isBefore start end then
         Just { start = start, end = end }
-    else
-        Nothing
-
-createTime : Int -> Int -> Maybe Time
-createTime hour minute =
-    if hour >= 0 && hour < 24 && minute >= 0 && minute < 60 then
-        Just { hour = hour, minute = minute }
 
     else
         Nothing
+
+
+parseTime : String -> Maybe Time
+parseTime time =
+    case String.split ":" time of
+        hourStr :: minuteStr :: [] ->
+            case ( String.toInt hourStr, String.toInt minuteStr ) of
+                ( Just hour, Just minute ) ->
+                    if hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 then
+                        Just { hour = hour, minute = minute }
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 findIntersections : TaskDictionary -> TimeRange -> Set Weekday -> TaskDictionary
@@ -66,21 +87,23 @@ findIntersections currentTasks time weekdays =
 
 
 isInSameDay : Set Weekday -> ID -> Task -> Bool
-isInSameDay weekdays _ task =
+isInSameDay weekdays _ (Task task) =
     Set.intersect task.weekdays weekdays
         |> Set.isEmpty
 
 
 doesIntersect : TimeRange -> ID -> Task -> Bool
-doesIntersect { start, end } _ { time } =
+doesIntersect { start, end } _ (Task { time }) =
     isBefore end time.start
-    || isAfter start time.end
-    || end == time.start
-    || start == time.end
+        || isAfter start time.end
+        || end
+        == time.start
+        || start
+        == time.end
 
 
 doesNotIntersect : TimeRange -> Task -> Bool
-doesNotIntersect { start, end } { time } =
+doesNotIntersect { start, end } (Task { time }) =
     (isBefore start time.start && (isBefore end time.end || end == time.end))
         || (isAfter start time.start || start == time.start && isAfter end time.end)
 
@@ -116,18 +139,16 @@ makeWeekday weekday =
         Nothing
 
 
-insertTask : Tasks -> String -> TimeRange -> Set Weekday -> ID -> Result Tasks Tasks
-insertTask (Tasks currentTasks) title timeRange weekdays id =
+insertTask : Tasks -> TaskFields -> Result Tasks Tasks
+insertTask (Tasks currentTasks) newTask =
     let
         intersections =
-            findIntersections currentTasks timeRange weekdays
+            findIntersections currentTasks newTask.time newTask.weekdays
     in
     if Dict.isEmpty intersections then
-        Dict.insert id { id = id
-        , title = title
-        , time = timeRange
-        , weekdays = weekdays
-        } currentTasks
-        |> Tasks |> Ok
+        Dict.insert newTask.id (Task newTask) currentTasks
+            |> Tasks
+            |> Ok
+
     else
         Err (Tasks intersections)

@@ -16,11 +16,7 @@ body {
   color: #293c4b;
 }
 
-h1 {
-  font-size: 30px;
-}
 
-img {
-  margin: 20px 0;
-  max-width: 200px;
+input {
+  padding: 0.8em 1.2em;
 }
