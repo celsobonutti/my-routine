@@ -3,7 +3,7 @@ module Main exposing (..)
 import Browser
 import DailyTask exposing (Tasks)
 import Html exposing (Html, button, div, form, h1, img, input, label, text)
-import Html.Attributes exposing (checked, for, name, src, type_, value)
+import Html.Attributes exposing (checked, class, for, name, src, type_, value)
 import Html.Events exposing (onCheck, onInput)
 import Set exposing (Set)
 
@@ -121,34 +121,38 @@ view model =
 
 viewForm : Model -> Html Msg
 viewForm ({ formData } as model) =
-    form []
+    form [ class "task-form" ]
         [ input
             [ value formData.title
             , type_ "text"
             , onInput (UpdateField Title)
+            , class "task-form__input"
             ]
             []
         , input
             [ value formData.description
             , type_ "text"
             , onInput (UpdateField Description)
+            , class "task-form__input"
             ]
             []
         , input
             [ value formData.start
             , type_ "time"
             , onInput (UpdateField Start)
+            , class "task-form__input task-form__input--time"
             ]
             []
         , input
             [ value formData.end
             , type_ "time"
             , onInput (UpdateField End)
+            , class "task-form__input task-form__input--time"
             ]
             []
-        , div [] (viewCheckboxes model)
+        , div [ class "task-form__checkboxes" ] (viewCheckboxes model)
         , button
-            []
+            [ class "task-form__button" ]
             [ text "Criar Tarefa" ]
         ]
 
