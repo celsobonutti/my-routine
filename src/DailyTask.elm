@@ -13,16 +13,21 @@ type alias Weekday =
     Int
 
 
-type alias Time =
-    { hour : Int
-    , minute : Int
-    }
+type Time
+    = Time
+        { hour : Int
+        , minute : Int
+        }
 
 
-type alias TimeRange =
+type alias TimeRangeRecord =
     { start : Time
     , end : Time
     }
+
+
+type TimeRange
+    = TimeRange TimeRangeRecord
 
 
 type alias TaskFields =
@@ -54,7 +59,7 @@ empty =
 createTimeRange : Time -> Time -> Maybe TimeRange
 createTimeRange start end =
     if isBefore start end then
-        Just { start = start, end = end }
+        Just (TimeRange { start = start, end = end })
 
     else
         Nothing
@@ -67,7 +72,7 @@ parseTime time =
             case ( String.toInt hourStr, String.toInt minuteStr ) of
                 ( Just hour, Just minute ) ->
                     if hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 then
-                        Just { hour = hour, minute = minute }
+                        Just (Time { hour = hour, minute = minute })
 
                     else
                         Nothing
@@ -93,23 +98,31 @@ isInSameDay weekdays _ (Task task) =
 
 
 doesIntersect : TimeRange -> ID -> Task -> Bool
-doesIntersect { start, end } _ (Task { time }) =
-    isBefore end time.start
-        || isAfter start time.end
+doesIntersect (TimeRange { start, end }) _ (Task { time }) =
+    let
+        (TimeRange taskTime) =
+            time
+    in
+    isBefore end taskTime.start
+        || isAfter start taskTime.end
         || end
-        == time.start
+        == taskTime.start
         || start
-        == time.end
+        == taskTime.end
 
 
 doesNotIntersect : TimeRange -> Task -> Bool
-doesNotIntersect { start, end } (Task { time }) =
-    (isBefore start time.start && (isBefore end time.end || end == time.end))
-        || (isAfter start time.start || start == time.start && isAfter end time.end)
+doesNotIntersect (TimeRange { start, end }) (Task { time }) =
+    let
+        (TimeRange taskTime) =
+            time
+    in
+    (isBefore start taskTime.start && (isBefore end taskTime.end || end == taskTime.end))
+        || (isAfter start taskTime.start || start == taskTime.start && isAfter end taskTime.end)
 
 
 isBefore : Time -> Time -> Bool
-isBefore fstTime sndTime =
+isBefore (Time fstTime) (Time sndTime) =
     if fstTime.hour < sndTime.hour then
         True
 
