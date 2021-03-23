@@ -1,10 +1,12 @@
 module Main exposing (..)
 
 import Browser
-import DailyTask exposing (Tasks)
+import DailyTask exposing (Tasks, insertTask)
 import Html exposing (Html, button, div, form, h1, img, input, label, text)
 import Html.Attributes exposing (checked, class, for, name, src, type_, value)
-import Html.Events exposing (onCheck, onInput)
+import Html.Events exposing (onCheck, onClick, onInput, onSubmit)
+import Prng.Uuid as Uuid
+import Random.Pcg.Extended exposing (Seed, initialSeed, step)
 import Set exposing (Set)
 
 
@@ -34,13 +36,17 @@ emptyForm =
 type alias Model =
     { currentTasks : Tasks
     , formData : Form
+    , currentUuid : Maybe Uuid.Uuid
+    , currentSeed : Seed
     }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : ( Int, List Int ) -> ( Model, Cmd Msg )
+init ( seed, seedExtension ) =
     ( { currentTasks = DailyTask.empty
       , formData = emptyForm
+      , currentSeed = initialSeed seed seedExtension
+      , currentUuid = Nothing
       }
     , Cmd.none
     )
@@ -60,6 +66,7 @@ type Field
 type Msg
     = UpdateField Field String
     | CheckDay Int Bool
+    | InsertTask
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -76,6 +83,11 @@ update msg model =
             ( { model
                 | formData = updateCheck model.formData day isChecked
               }
+            , Cmd.none
+            )
+
+        InsertTask ->
+            ( insertTask model
             , Cmd.none
             )
 
@@ -109,6 +121,42 @@ updateCheck ({ weekday } as form) day isChecked =
     { form | weekday = newDays }
 
 
+insertTask : Model -> Model
+insertTask ({ formData, currentTasks, currentSeed } as model) =
+    let
+        ( newUuid, newSeed ) =
+            step Uuid.generator currentSeed
+
+        newTasks =
+            DailyTask.parseTime formData.start
+                |> Result.andThen
+                    (\startTime ->
+                        DailyTask.parseTime formData.end
+                            |> Result.andThen
+                                (\endTime ->
+                                    DailyTask.createTimeRange startTime endTime
+                                )
+                    )
+                |> Result.andThen
+                    (\timeRange ->
+                        DailyTask.insertTask currentTasks <|
+                            { id = Uuid.toString newUuid
+                            , title =
+                                formData.title
+                            , description = formData.description
+                            , weekdays = formData.weekday
+                            , time = timeRange
+                            }
+                    )
+    in
+    case newTasks of
+        Ok tasks ->
+            { model | currentUuid = Just newUuid, currentSeed = currentSeed, currentTasks = tasks }
+
+        Err _ ->
+            model
+
+
 
 ---- VIEW ----
 
@@ -121,7 +169,7 @@ view model =
 
 viewForm : Model -> Html Msg
 viewForm ({ formData } as model) =
-    form [ class "task-form" ]
+    form [ class "task-form", onSubmit InsertTask ]
         [ input
             [ value formData.title
             , type_ "text"
@@ -216,11 +264,11 @@ numberToWeekday day =
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program ( Int, List Int ) Model Msg
 main =
     Browser.element
         { view = view
-        , init = \_ -> init
+        , init = init
         , update = update
         , subscriptions = always Sub.none
         }

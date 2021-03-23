@@ -1,0 +1,27 @@
+{
+  "name": "my-routine",
+  "version": "1.0.0",
+  "description": "Simple app to track routines, mostly a new Elm experiment for myself. Might add a Haskell API in the very far future.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "elm-app start",
+    "build-css": "node-sass-chokidar src/ -o src/",
+    "watch-css": "npm run build-css && node-sass-chokidar src/ -o src/ --watch --recursive"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/celsobonutti/my-routine.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/celsobonutti/my-routine/issues"
+  },
+  "homepage": "https://github.com/celsobonutti/my-routine#readme",
+  "dependencies": {
+    "node-sass-chokidar": "^1.5.0"
+  }
+}

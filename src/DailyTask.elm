@@ -1,4 +1,4 @@
-module DailyTask exposing (Tasks, createTimeRange, empty, insertTask, parseTime)
+module DailyTask exposing (Error, Tasks, createTimeRange, empty, insertTask, parseTime)
 
 import Dict exposing (Dict)
 import Html.Attributes exposing (id)
@@ -19,6 +19,11 @@ type Time
         , minute : Int
         }
 
+type Error 
+  = BadlyFormatted
+  | OutOfRange
+  | OverlappedTasks
+  | InvalidRange
 
 type alias TimeRangeRecord =
     { start : Time
@@ -31,7 +36,7 @@ type TimeRange
 
 
 type alias TaskFields =
-    { id : ID
+    { id : String
     , title : String
     , description : String
     , weekdays : Set Weekday
@@ -55,34 +60,38 @@ empty : Tasks
 empty =
     Tasks Dict.empty
 
-
-createTimeRange : Time -> Time -> Maybe TimeRange
+createTimeRange : Time -> Time -> Result Error TimeRange
 createTimeRange start end =
     if isBefore start end then
-        Just (TimeRange { start = start, end = end })
+        Ok (TimeRange { start = start, end = end })
 
     else
-        Nothing
+        Err InvalidRange 
 
+splitInHourAndMinute : String -> Result Error (String, String)
+splitInHourAndMinute time =
+  case String.split ":" time of
+    hourStr :: minuteStr :: [] -> Ok (hourStr, minuteStr)
+    _ -> Err BadlyFormatted
 
-parseTime : String -> Maybe Time
-parseTime time =
-    case String.split ":" time of
-        hourStr :: minuteStr :: [] ->
-            case ( String.toInt hourStr, String.toInt minuteStr ) of
-                ( Just hour, Just minute ) ->
-                    if hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 then
-                        Just (Time { hour = hour, minute = minute })
+convertTimeStringToInt : (String, String) -> Result Error (Int, Int)
+convertTimeStringToInt timeTuple =
+  case Tuple.mapBoth String.toInt String.toInt timeTuple of
+    (Just hour, Just minute) -> Ok (hour, minute)
+    _ -> Err BadlyFormatted
 
-                    else
-                        Nothing
+validateRange : (Int, Int) -> Result Error Time
+validateRange (hour, minute) =
+  if hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 then
+    Ok (Time { hour = hour, minute = minute })
+  else
+   Err OutOfRange 
 
-                _ ->
-                    Nothing
-
-        _ ->
-            Nothing
-
+parseTime : String -> Result Error Time
+parseTime = 
+  splitInHourAndMinute
+  >> Result.andThen convertTimeStringToInt
+  >> Result.andThen validateRange
 
 findIntersections : TaskDictionary -> TimeRange -> Set Weekday -> TaskDictionary
 findIntersections currentTasks time weekdays =
@@ -152,7 +161,7 @@ makeWeekday weekday =
         Nothing
 
 
-insertTask : Tasks -> TaskFields -> Result Tasks Tasks
+insertTask : Tasks -> TaskFields -> Result Error Tasks
 insertTask (Tasks currentTasks) newTask =
     let
         intersections =
@@ -164,4 +173,4 @@ insertTask (Tasks currentTasks) newTask =
             |> Ok
 
     else
-        Err (Tasks intersections)
+        Err OverlappedTasks
